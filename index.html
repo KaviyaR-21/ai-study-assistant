@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AI Study Assistant</title>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: "Segoe UI", Arial, sans-serif; background: #f4f6fb; color: #1f2937; }
+    header { background: linear-gradient(135deg, #4f46e5, #7c3aed); color: #fff; text-align: center; padding: 40px 20px 80px; }
+    header h1 { margin: 0 0 8px; font-size: 32px; }
+    header p { margin: 0; opacity: .9; }
+    .card { max-width: 800px; margin: -45px auto 40px; background: #fff; border-radius: 14px; padding: 24px; box-shadow: 0 8px 30px rgba(0,0,0,.1); }
+    #topic { width: 100%; padding: 12px 14px; font-size: 16px; border: 1px solid #d1d5db; border-radius: 10px; outline: none; }
+    #topic:focus { border-color: #4f46e5; }
+    .buttons { display: flex; gap: 10px; flex-wrap: wrap; margin: 16px 0; }
+    button { padding: 10px 16px; border: none; border-radius: 10px; background: #4f46e5; color: #fff; font-size: 15px; cursor: pointer; }
+    button:hover { background: #4338ca; }
+    #output { line-height: 1.7; margin-top: 10px; }
+    #output h2, #output h3 { color: #4f46e5; }
+    pre { background: #1e1e2e; color: #f8f8f2; padding: 14px; border-radius: 10px; overflow-x: auto; }
+    code { font-family: Consolas, monospace; }
+    .q { margin-bottom: 22px; }
+    .q p { font-weight: 600; margin-bottom: 8px; }
+    .option { display: block; padding: 10px 12px; margin: 6px 0; border: 1px solid #e5e7eb; border-radius: 10px; cursor: pointer; }
+    .option:hover { background: #f5f3ff; }
+    .correct { background: #d1fae5 !important; border-color: #10b981; }
+    .wrong { background: #fee2e2 !important; border-color: #ef4444; }
+    .score { font-size: 20px; font-weight: bold; margin-top: 16px; }
+    .error { color: #b91c1c; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>📘 AI Study Assistant</h1>
+    <p>Enter any topic to get an explanation, practice questions, or a quiz</p>
+  </header>
+
+  <div class="card">
+    <input type="text" id="topic" placeholder="e.g. Python decorators">
+    <div class="buttons">
+      <button onclick="run('explain')">💡 Explain</button>
+      <button onclick="run('questions')">📚 Generate Questions</button>
+      <button onclick="run('quiz')">📝 Generate Quiz</button>
+    </div>
+    <div id="output"></div>
+  </div>
+
+<script>
+async function run(type) {
+  const topic = document.getElementById("topic").value;
+  const output = document.getElementById("output");
+  output.textContent = "⏳ Thinking...";
+  try {
+    const res = await fetch("/" + type, {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({topic: topic})
+    });
+    const data = await res.json();
+    if (data.error) {
+      output.innerHTML = '<p class="error">' + data.error + '</p>';
+      return;
+    }
+    if (type === "quiz") { renderQuiz(data.quiz); }
+    else { output.innerHTML = marked.parse(data.result); }
+  } catch (err) {
+    output.innerHTML = '<p class="error">Something went wrong. Try again.</p>';
+  }
+}
+
+function renderQuiz(items) {
+  const output = document.getElementById("output");
+  output.innerHTML = "";
+  items.forEach((q, i) => {
+    const div = document.createElement("div");
+    div.className = "q";
+    const title = document.createElement("p");
+    title.textContent = (i + 1) + ". " + q.question;
+    div.appendChild(title);
+    q.options.forEach((opt, j) => {
+      const label = document.createElement("label");
+      label.className = "option";
+      const input = document.createElement("input");
+      input.type = "radio";
+      input.name = "q" + i;
+      input.value = j;
+      label.appendChild(input);
+      label.append(" " + opt);
+      div.appendChild(label);
+    });
+    output.appendChild(div);
+  });
+  const btn = document.createElement("button");
+  btn.textContent = "Submit Quiz";
+  btn.onclick = () => checkQuiz(items);
+  output.appendChild(btn);
+  const score = document.createElement("div");
+  score.className = "score";
+  score.id = "score";
+  output.appendChild(score);
+}
+
+function checkQuiz(items) {
+  let score = 0;
+  items.forEach((q, i) => {
+    const inputs = document.querySelectorAll('input[name="q' + i + '"]');
+    inputs.forEach((input, j) => {
+      const label = input.parentElement;
+      if (j === q.answer) label.classList.add("correct");
+      if (input.checked) {
+        if (j === q.answer) score++;
+        else label.classList.add("wrong");
+      }
+      input.disabled = true;
+    });
+  });
+  document.getElementById("score").textContent =
+    "Your score: " + score + " / " + items.length;
+}
+</script>
+</body>
+</html>
